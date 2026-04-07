@@ -1,5 +1,6 @@
 # Webserver
 
+## [HTTP Response Status Codes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status#informational_responses)
 
 ## http
 
@@ -84,6 +85,21 @@ Todo lo que es del framework de express va en la capa de `presentation`
 
 > Un Middlewares es una funcion que ejecute siempre que se ejecute por una ruta
 
+### Obtener la pagina
+
+```ts
+    this.app.use(express.static(this.publicPath))
+```
+
+### Refrescar una pagina y que se siga viendo
+```ts
+        //* SPA
+    this.app.get('/*splat', (req, res) => {
+        const indexPath = path.join(__dirname + `../../../${this.publicPath}/index.html`);
+        res.sendFile(indexPath)
+    })
+```
+
 ### Expresion `'*'` vs `'/*splat'` wildcard
 
 En express despues de la version `5.2.1` el comodin `*` fue eliminado y ahora se usa `/*splat`, usar `*` para versiones anteriores
@@ -125,4 +141,185 @@ Y luego procedemos a cambiar nuestras variables donde sea necesario
         })
     }
 
+```
+### Enviar un json desde un Endpoint
+
+```ts
+        this.app.get('/api/todos', (req, res) => {
+            res.json([
+                { id: 1, text: 'Buy Milk', createdAt: new Date() },
+                { id: 2, text: 'Buy Bread', createdAt: new Date() },
+                { id: 3, text: 'Buy Butter', createdAt: new Date() },
+            ])
+        })
+
+```
+
+
+## Express y MVC
+
+El patrón MVC (Modelo-Vista-Controlador) es una arquitectura de software que separa la lógica de una aplicación en tres componentes principales.
+
+El patrón MVC (Modelo-Vista-Controlador) es una arquitectura de software que separa la lógica de una aplicación en tres componentes principales. En Express.js, aunque el framework es "minimalista" y no te obliga a usar una estructura específica, implementar MVC es el estándar de oro para mantener el código organizado y escalable.
+
+Aquí te explico cómo se divide cada pieza:
+
+Los tres pilares del MVC
+* Modelo (Model): Es la capa de los datos. Se encarga de interactuar con la base de datos (como MongoDB o PostgreSQL). Define la estructura de la información y las reglas de negocio.
+    * En Express: Suele ser un archivo donde defines esquemas (por ejemplo, con Mongoose o Sequelize).
+
+* Vista (View): Es la interfaz de usuario. Es lo que el cliente ve en su pantalla.
+    * En Express: Si es una aplicación tradicional, usas motores de plantillas como EJS o Pug. Si es una API para una App de React/Angular, la "Vista" suele ser simplemente un archivo JSON que se envía al cliente.
+
+* Controlador (Controller): Es el intermediario o "el cerebro". Recibe las peticiones del usuario a través de las rutas, pide los datos necesarios al Modelo y decide qué Vista mostrar (o qué JSON responder).
+    * En Express: Son funciones que contienen la lógica que antes solías escribir directamente en el archivo de rutas.
+
+### Archivo `routes.ts`
+
+Aqui van a estar definidas todas las rutas de la aplicacion con el metodo `get routes(): Router` 
+```ts
+export class AppRoutes {
+
+    static get routes(): Router {
+
+        const router = Router();
+
+        router.use('/api/todos', TodoRoutes.routes)  // (req, res) => todoController.getTodos(req, res)
+
+        return router;
+    }
+}
+```
+en este archivo se utiliza el metodo `router.use('/api/todos'), TodoRoutes.routes` el cual llama a `TodoRoutes.routes` donde se vera que peticion se esta utilizando y la llamara para que se ejecute
+
+> El `router.use` llama a cualquier peticion `POST GET DELETE` etc suele usarse como un middleware
+
+```ts
+export class TodoRoutes {
+
+    static get routes(): Router {
+
+        const router = Router();
+        const todoController = new TodosController
+
+        router.get('/', todoController.getTodos)  // (req, res) => todoController.getTodos(req, res)
+
+        return router;
+    }
+
+}
+```
+
+### Controladores
+
+En los controladores por lo general vas a querer hacer inyecciones de dependencia por lo cual no sueles usar metodos estaticos
+```ts
+    public getTodos = (req: Request, res: Response) => {
+        return res.json(todos)
+    }
+
+    public getTodoById = (req: Request, res: Response) => {
+        const id = +req.params.id!;
+
+        if (isNaN(id)) {
+            return res.status(404).json({ error: 'el ID debe ser un numero' })
+        }
+        const todo = todos.find(todo => todo.id === id);
+        (todo)
+            ? res.json(todo)
+            : res.status(404).json({ error: `TODO with id ${id} not found` })
+    }
+```
+
+### Buscar por id
+
+Se utiliza el operador `+` para convertirlo en un numero ya que por defecto nos devuelve un string y el operador `!` porque nos puede dar undefined y con ese operador le aseguramos que siempre nos dara un numero, despues puedes hacer una validacion con el `if (isNaN(id))`
+
+
+```ts
+    // En Todos/routes.ts
+    router.get('/:id', todoController.getTodoById)
+
+    // En Todos/controller.ts
+    public getTodoById = (req: Request, res: Response) => {
+        const id = +req.params.id!;
+
+        if (isNaN(id)) {
+            return res.status(400).json({ error: 'el ID debe ser un numero' }) // Validacion de numero
+        }
+        const todo = todos.find(todo => todo.id === id);
+        (todo)
+            ? res.json(todo)
+            : res.status(404).json({ error: `TODO with id ${id} not found` }) // Validacion de undefined
+    }
+```
+
+### Metodo post
+
+```ts
+    public createTodo = (req: Request, res: Response) => {
+
+        const { text } = req.body;
+        if (!text) res.status(400).json({ error: 'text property is required' })
+
+        const newTodo = {
+            id: todos.length + 1,
+            text: text,
+            createdAt: new Date()
+        }
+        todos.push(newTodo);
+        res.json(newTodo)
+    }
+```
+
+### Metodo Update
+
+```ts
+    public updateTodo = (req: Request, res: Response) => {
+        const id = +req.params.id!;
+        if (isNaN(id)) return res.status(404).json({ error: 'el ID debe ser un numero' })
+
+        const todo = todos.find(todo => todo.id === id);
+        if (!todo) return res.status(404).json({ error: `todo with ID${id} not found` })
+
+        const { text, createdAt } = req.body
+        todo.text = text || todo.text;
+        (createdAt === 'null')
+            ? todo.createdAt = null
+            : todo.createdAt = new Date(createdAt || todo.createdAt)
+        res.json(todo)
+    }
+```
+
+### Metodo Delete
+```ts
+    public deleteTodo = (req: Request, res: Response) => {
+        const id = +req.params.id!;
+        if (isNaN(id)) return res.status(404).json({ error: 'el ID debe ser un numero' })
+
+        const todo = todos.find(todo => todo.id === id);
+        if (!todo) return res.status(404).json({ error: `todo with id ${id} not found` })
+
+        todos.splice(todos.indexOf(todo), 1)
+
+        res.json(todo)
+    }
+```
+
+#### Recordatorio js `indexOf`
+
+El index of  te devuelve el indice del elemento que coincida con el arreglo, y el segundo parametro es la cantidad de elementos a borrar a partir de ahi, sirve para eliminar elementos de un arreglo que se haya creado como `const`
+
+```ts
+todos.splice(todos.indexOf(todo), 1)
+
+```
+
+### Middlewares
+
+Para que el body serialize el json dependiendo de la peticion que nos envie
+```ts
+    //* Middleware
+    this.app.use(express.json()) // raw
+    this.app.use(express.urlencoded({ extended: true})) // x-www-form-urlencoded
 ```
