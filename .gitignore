@@ -6,4 +6,3 @@ keys/
 
 dist/
 
-/src/data/postgres/generated/
