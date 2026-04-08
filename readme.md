@@ -328,6 +328,85 @@ Para que el body serialize el json dependiendo de la peticion que nos envie
 
 Es un objeto diseñado específicamente para transportar datos entre diferentes partes de un sistema (por ejemplo, del backend al frontend o entre microservicios). Su única función es mover información, por lo que no debe contener lógica de negocio. Imagínalo como un sobre de mensajería: solo importa lo que hay dentro y que llegue a su destino de forma organizada.
 
+
+* Create TODO DTO
+```ts
+export class CreateTodoDto {
+
+    private constructor(
+        public readonly text: string,
+    ) { }
+
+
+    static create(props: { [key: string]: any }): [string?, CreateTodoDto?] {
+        const { text } = props
+        if (!text) return ['Text property is required']
+        return [, new CreateTodoDto(text)];
+    }
+}
+
+// en el controller
+        const [error, createTodoDto] = CreateTodoDto.create(req.body)
+        if (error) return res.status(400).json({ error })
+
+
+
+        const todo = await prisma.todo.create({
+            data: createTodoDto!
+        })
+
+
+```
+
+* Update TODO DTO
+
+```ts
+export class UpdateTodoDto {
+
+    private constructor(
+        public readonly id: number,
+        public readonly text?: string,
+        public readonly createdAt?: Date,
+    ) { }
+
+    get values() {
+
+        const returnObj: { [key: string]: any } = {}
+
+        if (this.text) returnObj.text = this.text;
+        if (this.createdAt) returnObj.createdAt = this.createdAt;
+
+        return returnObj
+
+    }
+
+    static create(props: { [key: string]: any }): [string?, UpdateTodoDto?] {
+        const { id, text, createdAt } = props
+
+        if (!id || isNaN(id)) return ['Id must be a valid number']
+
+        let newCreatedAt = createdAt
+        if (createdAt) {
+            newCreatedAt = new Date(createdAt)
+            if (newCreatedAt.toString() === 'Invalid Date') {
+                return ['CreatedAt must be a valid date']
+            }
+        }
+        return [, new UpdateTodoDto(id, text, newCreatedAt)];
+    }
+}
+
+
+// en el controller
+const [error, updateTodoDto] = UpdateTodoDto.create({ ...req.body, id })
+
+const updateTodo = await prisma.todo.update({
+            where: { id: id },
+            data: updateTodoDto!.values
+})
+
+```
+
 > Nos puede servir para hacer validaciones de un tipo de dato, que se envie de la forma en que queremos
 
 ## Metodos con Prisma ORM 
