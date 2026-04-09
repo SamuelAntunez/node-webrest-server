@@ -1,8 +1,6 @@
 import express, { Router } from 'express'
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 interface Options {
     port: number;
     public_path: string;
@@ -30,19 +28,20 @@ export class Server {
         this.app.use(express.json()) // raw
         this.app.use(express.urlencoded({ extended: true })) // x-www-form-urlencoded
 
-        //* Public Folder
-        this.app.use(express.static(this.publicPath))
+        //* Public Folder - use absolute path from project root
+        const publicPath = path.join(process.cwd(), this.publicPath)
+        this.app.use(express.static(publicPath))
 
         //* Routes
         this.app.use(this.routes)
 
-        //* SPA
+        //* SPA - serve index.html for all non-API routes
         this.app.get(/^\/(?!api).*/, (req, res) => {
-            const indexPath = path.join(__dirname, `../../${this.publicPath}/index.html`);
+            const indexPath = path.join(publicPath, 'index.html')
             res.sendFile(indexPath)
         })
         this.app.listen(this.port, () => {
-            console.log(`Sever running on port ${this.port}`)
+            console.log(`Server running on port ${this.port}`)
         })
     }
 
