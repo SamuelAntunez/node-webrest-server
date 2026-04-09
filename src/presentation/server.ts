@@ -1,6 +1,8 @@
 import express, { Router } from 'express'
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 interface Options {
     port: number;
     public_path: string;
@@ -35,8 +37,8 @@ export class Server {
         this.app.use(this.routes)
 
         //* SPA
-        this.app.get('/*splat', (req, res) => {
-            const indexPath = path.join(__dirname + `../../../${this.publicPath}/index.html`);
+        this.app.get(/^\/(?!api).*/, (req, res) => {
+            const indexPath = path.join(__dirname, `../../${this.publicPath}/index.html`);
             res.sendFile(indexPath)
         })
         this.app.listen(this.port, () => {
