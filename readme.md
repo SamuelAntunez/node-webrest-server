@@ -1,512 +1,95 @@
-# Webserver
+# TODO REST API - Node.js & TypeScript
 
-## [HTTP Response Status Codes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status#informational_responses)
+Una API REST robusta y escalable construida con **Node.js, Express y TypeScript**, diseñada meticulosamente bajo los principios de **Clean Architecture** y **Domain-Driven Design (DDD)**. 
 
-## http
+Este proyecto utiliza **Prisma ORM** y **PostgreSQL** para la persistencia de los datos, demostrando un excelente manejo de responsabilidades y la correcta implementación de inyección de dependencias.
 
-**Http** es un modulo de nodejs que nos permite crear servidores web y escuchar peticiones
+---
 
+## 🚀 Requisitos Previos
 
-> Para escuchar un archivo, podemos crear un servidor con el metodo `http.createServer()` el cual recibira 2 argumentos, el `req` y el `res`
-```ts
-const server = http.createServer((req, res) => {
-    console.log(req.url)
+- **Node.js** (v18 o superior recomendado)
+- **PostgreSQL** (en ejecución local, remoto o a través de Docker)
 
-    res.write('Hola mundo')
-    res.end();
-})
+## 🛠️ Instalación y Configuración
 
-server.listen(8080, () => {
-    console.log('Server running on port 8080')
-})
-```
+1. **Clonar el repositorio y acceder a la carpeta del proyecto**
+2. **Instalar dependencias:**
+   ```bash
+   npm install
+   ```
 
-* `res.writeHead(status, contenido)`: Con este establecemos que codigo nos manda en este caso `200` o **OK** y el tipo de contenido
-* `res.write()`: Con este escribimos el contenido que queremos mandar
-* `res.end()`: Con este finalizamos la respuesta
-* `req.url`: Con este obtenemos la url que estamos solicitando
+3. **Variables de Entorno:**
+   Crea un archivo `.env` en la raíz del proyecto. Configura las siguientes variables base para la conexión:
+   ```env
+   PORT=3000
+   PUBLIC_PATH=public
+   POSTGRES_URL="postgresql://tu_usuario:tu_contraseña@localhost:5432/tu_base_de_datos"
+   ```
 
+4. **Ejecutar migraciones de Prisma:**
+   Genera el cliente de Prisma y las migraciones necesarias en tu base de datos utilizando el siguiente comando:
+   ```bash
+   npx prisma migrate dev
+   ```
 
-```ts
+5. **Levantar el servidor en desarrollo:**
+   ```bash
+   npm run dev
+   ```
+   El servidor debería inicializarse en el puerto configurado (ej: `http://localhost:3000`).
 
-    // En este codigo vemos varias maneras de responder a una peticion
-    res.writeHead(200, { 'content-type': 'text/html' })
-    res.write('<h1>Hola Mundo!</h1>');
-    res.end()
+---
 
-    res.write('Hola mundo')
-    res.end();
+## 🏛️ Arquitectura del Proyecto
 
-    const data = { name: 'John Doe', age: 30, city: 'New York' }
-    res.writeHead(200, { 'content-type': 'application/json' })
-    res.end(JSON.stringify(data))
+Este proyecto no utiliza una arquitectura tradicional fuertemente acoplada a un framework (como MVC desnudo), sino que apuesta por la **Clean Architecture** combinada con conceptos fundamentales de **Domain-Driven Design (DDD)**. 
 
-    // En este codigo vemos como podemos responder a una peticion dependiendo de la url y el tipo de contenido
-    if (req.url === '/') {
-        const htmlFile = fs.readFileSync('./public/index.html', 'utf-8');
-        res.writeHead(200, { 'content-type': 'text/html' })
-        res.end(htmlFile)
-        return
-    }
+### ¿Cuáles son las ventajas de este enfoque?
 
-    if (req.url?.endsWith('.css')) {
-        res.writeHead(200, { 'content-type': 'text/css' })
-    } else if (req.url?.endsWith('.js')) {
-        res.writeHead(200, { 'content-type': 'application/js' })
-    }
-    const responseContent = fs.readFileSync(`./public${req.url}`, 'utf-8') 
-    res.end(responseContent) // aqui mandamos el response con el contenido html, css y js
-```
+* **Total Independencia de Frameworks**: La lógica de negocio no sabe ni le importa si usas `Express`, `Fastify`, `NestJS` u otro.
+* **Escalabilidad y Modificabilidad**: Es muy fácil escalar módulos a medida que crece la aplicación. Añadir una entidad o un nuevo Endpoint no afectará ni alterará otras partes del sistema.
+* **Mantenibilidad Cero Fricción**: Si el día de mañana decides migrar la base de datos (por ejemplo, pasar de PostgreSQL a MongoDB o MySQL), no tendrás que reescribir toda la aplicación. Solamente escribes un nuevo `DataSource` de infraestructura; la aplicación en sí permanecerá intacta y funcionará igual.
+* **Pruebas (Testing) Rápidas y Confiables**: Al depender de abstracciones, aislar reglas de negocio en pruebas automatizadas usando simples "Mocks" es trivial.
 
-## http2
+### Capas de la Arquitectura
 
-Para crear un servidor con https necesitamos un certificado y una llave privada 
-```ts
-const server = http2.createSecureServer(
-    {
-        key: fs.readFileSync('./keys/server.key'),
-        cert: fs.readFileSync('./keys/server.crt')
-    },
-    (req, res) => {
+#### 1. Capa de Dominio (`/src/domain`)
+Es el corazón de la aplicación. Aquí reside la **lógica de negocio** pura, sin importar qué librerías de terceros se utilizan.
+- **Entidades (`Entities`)**: Reglas de negocio y estado interno que representan la data de dominio de manera estricta (ej. `TodoEntity`).
+- **DTOs (`Data Transfer Objects`)**: Protegen a la aplicación validando exhaustivamente cualquier información o carga útil que entre a nuestro sistema de manera limpia (evitando ensuciar los controladores).
+- **Interfaces (Abstract Classes)**: Aquí se definen los *contratos* (como Repositorios y DataSources abstractos). El Dominio **dicta** qué acciones puede hacer la persistencia (buscar, actualizar, borrar), pero sin implementar el "cómo".
+- **Casos de Uso (`Use Cases`)**: Funciones o clases que orquestan verbos o acciones altamente concretas solicitadas por nuestros clientes (ej. `CreateTodo`, `GetTodos`, `DeleteTodo`). Son el punto de entrada al negocio.
 
-    }
-```
+#### 2. Capa de Infraestructura (`/src/infrastructure`)
+Es la capa externa encargada de conectar e implementar aquellas interfaces propuestas por el Dominio usando herramientas de terceros.
+- **DataSources (Implementación)**: En esta aplicación, hace uso de **Prisma ORM** y la base de datos en sí misma para extraer los archivos, procesarlos y devolver siempre clases `Entity` validadas por el Dominio.
+- **Repositories (Implementación)**: Intermediario que actúa entre los Casos de Uso y los DataSources. Su misión es recibir y despachar la data solicitada para los casos de uso.
 
-Para crear el certificado y la llave privada usamos este comando en el terminal:
-```bash
-openssl req -x509 -newkey rsa:2048 -nodes -keyout server.key -out server.crt -days 365
-```
+#### 3. Capa de Presentación (`/src/presentation`)
+Conforma tu puente con el exterior. Se encarga únicamente de recibir la petición HTTP y despachar una respuesta, siendo ignorante a nivel de negocio.
+- **Controladores (`Controllers`)**: Extraen la información de `req.body` o `req.params`, generan arreglos o DTOs y llaman a los Casos de Uso enviándoles el repositorio a través de inyección de dependencias. Al terminar, despachan la respuesta `res.json()`.
+- **Rutas (`Routes`)**: Endpoints de `Express` (`.get`, `.post`, etc.) mapeados a sus respectivos métodos Controladores.
+- **Server**: Envoltorio de nuestro `Express.js`, middlewares y archivos estáticos.
 
-necesitas tener openssl para poder crear el certificado y la llave privada 
+---
 
-## Express
+## 🔥 Flujo de una Petición (Ejemplo práctico)
 
-Todo lo que es del framework de express va en la capa de `presentation`
+Para entender cómo fluye esta arquitectura, imaginemos una petición `POST /api/todos`:
 
-> Un Middlewares es una funcion que ejecute siempre que se ejecute por una ruta
+1.  **Presentación:** El usuario envía un *Body*. El enrutador redirige la petición a `todoController.createTodo`.
+2.  **Validación:** El Controlador usa el **DTO (`CreateTodoDto`)** para verificar los datos enviados de manera estricta. ¿Falla? retorna un error `400` automáticamente.
+3.  **Ejecución:** Si las reglas pasan, el Controlador instancia el predefinido **Caso de Uso** `CreateTodoUseCase`, al cual se le "inyectan" las bases de datos (repositorio).
+4.  **Lógica:** El Caso de Uso solicita a la **Infraestructura** realizar la tarea sobre PostgreSQL usando las funciones de *Prisma*. 
+5.  **Cierre:** La *Infraestructura* recibe la respuesta, la transforma en una *Entidad de Dominio* blindada, y en cadena todo vuelve hasta devolvérsele finalmente al cliente en una respuesta JSON. 
 
-### Obtener la pagina
+Todos estos pasos, sin que los procesos cruzados sean codependientes entre sí.
 
-```ts
-    this.app.use(express.static(this.publicPath))
-```
+---
 
-### Refrescar una pagina y que se siga viendo
-```ts
-        //* SPA
-    this.app.get('/*splat', (req, res) => {
-        const indexPath = path.join(__dirname + `../../../${this.publicPath}/index.html`);
-        res.sendFile(indexPath)
-    })
-```
+## 📦 Scripts Recomendados
 
-### Expresion `'*'` vs `'/*splat'` wildcard
-
-En express despues de la version `5.2.1` el comodin `*` fue eliminado y ahora se usa `/*splat`, usar `*` para versiones anteriores
-
-### Configuracion de variables de entorno
-
-```ts
-export class Server {
-
-    private app = express();
-    private readonly port: number;
-    private readonly publicPath: string;
-
-    constructor(options: Options) {
-        const { port, public_path } = options
-        this.port = port;
-        this.publicPath = public_path
-
-    }
-}
-```
-
-Y luego procedemos a cambiar nuestras variables donde sea necesario
-```ts
-
-    async start() {
-
-        //* Middleware
-        //* Public Folder
-
-        this.app.use(express.static(this.publicPath))
-
-        this.app.get('/*splat', (req, res) => {
-            const indexPath = path.join(__dirname + `../../../${this.publicPath}/index.html`);
-            res.sendFile(indexPath)
-        })
-        this.app.listen(this.port, () => {
-            console.log(`Sever running on port ${this.port}`)
-        })
-    }
-
-```
-### Enviar un json desde un Endpoint
-
-```ts
-        this.app.get('/api/todos', (req, res) => {
-            res.json([
-                { id: 1, text: 'Buy Milk', createdAt: new Date() },
-                { id: 2, text: 'Buy Bread', createdAt: new Date() },
-                { id: 3, text: 'Buy Butter', createdAt: new Date() },
-            ])
-        })
-
-```
-
-
-## Express y MVC
-
-El patrón MVC (Modelo-Vista-Controlador) es una arquitectura de software que separa la lógica de una aplicación en tres componentes principales.
-
-El patrón MVC (Modelo-Vista-Controlador) es una arquitectura de software que separa la lógica de una aplicación en tres componentes principales. En Express.js, aunque el framework es "minimalista" y no te obliga a usar una estructura específica, implementar MVC es el estándar de oro para mantener el código organizado y escalable.
-
-Aquí te explico cómo se divide cada pieza:
-
-Los tres pilares del MVC
-* Modelo (Model): Es la capa de los datos. Se encarga de interactuar con la base de datos (como MongoDB o PostgreSQL). Define la estructura de la información y las reglas de negocio.
-    * En Express: Suele ser un archivo donde defines esquemas (por ejemplo, con Mongoose o Sequelize).
-
-* Vista (View): Es la interfaz de usuario. Es lo que el cliente ve en su pantalla.
-    * En Express: Si es una aplicación tradicional, usas motores de plantillas como EJS o Pug. Si es una API para una App de React/Angular, la "Vista" suele ser simplemente un archivo JSON que se envía al cliente.
-
-* Controlador (Controller): Es el intermediario o "el cerebro". Recibe las peticiones del usuario a través de las rutas, pide los datos necesarios al Modelo y decide qué Vista mostrar (o qué JSON responder).
-    * En Express: Son funciones que contienen la lógica que antes solías escribir directamente en el archivo de rutas.
-
-### Archivo `routes.ts`
-
-Aqui van a estar definidas todas las rutas de la aplicacion con el metodo `get routes(): Router` 
-```ts
-export class AppRoutes {
-
-    static get routes(): Router {
-
-        const router = Router();
-
-        router.use('/api/todos', TodoRoutes.routes)  // (req, res) => todoController.getTodos(req, res)
-
-        return router;
-    }
-}
-```
-en este archivo se utiliza el metodo `router.use('/api/todos'), TodoRoutes.routes` el cual llama a `TodoRoutes.routes` donde se vera que peticion se esta utilizando y la llamara para que se ejecute
-
-> El `router.use` llama a cualquier peticion `POST GET DELETE` etc suele usarse como un middleware
-
-```ts
-export class TodoRoutes {
-
-    static get routes(): Router {
-
-        const router = Router();
-        const todoController = new TodosController
-
-        router.get('/', todoController.getTodos)  // (req, res) => todoController.getTodos(req, res)
-
-        return router;
-    }
-
-}
-```
-
-### Controladores
-
-En los controladores por lo general vas a querer hacer inyecciones de dependencia por lo cual no sueles usar metodos estaticos
-```ts
-    public getTodos = (req: Request, res: Response) => {
-        return res.json(todos)
-    }
-
-    public getTodoById = (req: Request, res: Response) => {
-        const id = +req.params.id!;
-
-        if (isNaN(id)) {
-            return res.status(404).json({ error: 'el ID debe ser un numero' })
-        }
-        const todo = todos.find(todo => todo.id === id);
-        (todo)
-            ? res.json(todo)
-            : res.status(404).json({ error: `TODO with id ${id} not found` })
-    }
-```
-
-### Buscar por id
-
-Se utiliza el operador `+` para convertirlo en un numero ya que por defecto nos devuelve un string y el operador `!` porque nos puede dar undefined y con ese operador le aseguramos que siempre nos dara un numero, despues puedes hacer una validacion con el `if (isNaN(id))`
-
-
-```ts
-    // En Todos/routes.ts
-    router.get('/:id', todoController.getTodoById)
-
-    // En Todos/controller.ts
-    public getTodoById = (req: Request, res: Response) => {
-        const id = +req.params.id!;
-
-        if (isNaN(id)) {
-            return res.status(400).json({ error: 'el ID debe ser un numero' }) // Validacion de numero
-        }
-        const todo = todos.find(todo => todo.id === id);
-        (todo)
-            ? res.json(todo)
-            : res.status(404).json({ error: `TODO with id ${id} not found` }) // Validacion de undefined
-    }
-```
-
-### Metodo post
-
-```ts
-    public createTodo = (req: Request, res: Response) => {
-
-        const { text } = req.body;
-        if (!text) res.status(400).json({ error: 'text property is required' })
-
-        const newTodo = {
-            id: todos.length + 1,
-            text: text,
-            createdAt: new Date()
-        }
-        todos.push(newTodo);
-        res.json(newTodo)
-    }
-```
-
-### Metodo Update
-
-```ts
-    public updateTodo = (req: Request, res: Response) => {
-        const id = +req.params.id!;
-        if (isNaN(id)) return res.status(404).json({ error: 'el ID debe ser un numero' })
-
-        const todo = todos.find(todo => todo.id === id);
-        if (!todo) return res.status(404).json({ error: `todo with ID${id} not found` })
-
-        const { text, createdAt } = req.body
-        todo.text = text || todo.text;
-        (createdAt === 'null')
-            ? todo.createdAt = null
-            : todo.createdAt = new Date(createdAt || todo.createdAt)
-        res.json(todo)
-    }
-```
-
-### Metodo Delete
-```ts
-    public deleteTodo = (req: Request, res: Response) => {
-        const id = +req.params.id!;
-        if (isNaN(id)) return res.status(404).json({ error: 'el ID debe ser un numero' })
-
-        const todo = todos.find(todo => todo.id === id);
-        if (!todo) return res.status(404).json({ error: `todo with id ${id} not found` })
-
-        todos.splice(todos.indexOf(todo), 1)
-
-        res.json(todo)
-    }
-```
-
-#### Recordatorio js `indexOf`
-
-El index of  te devuelve el indice del elemento que coincida con el arreglo, y el segundo parametro es la cantidad de elementos a borrar a partir de ahi, sirve para eliminar elementos de un arreglo que se haya creado como `const`
-
-```ts
-todos.splice(todos.indexOf(todo), 1)
-
-```
-
-### Middlewares
-
-Para que el body serialize el json dependiendo de la peticion que nos envie
-```ts
-    //* Middleware
-    this.app.use(express.json()) // raw
-    this.app.use(express.urlencoded({ extended: true})) // x-www-form-urlencoded
-```
-
-### DTO Data Transfer Object
-
-Es un objeto diseñado específicamente para transportar datos entre diferentes partes de un sistema (por ejemplo, del backend al frontend o entre microservicios). Su única función es mover información, por lo que no debe contener lógica de negocio. Imagínalo como un sobre de mensajería: solo importa lo que hay dentro y que llegue a su destino de forma organizada.
-
-
-* Create TODO DTO
-```ts
-export class CreateTodoDto {
-
-    private constructor(
-        public readonly text: string,
-    ) { }
-
-
-    static create(props: { [key: string]: any }): [string?, CreateTodoDto?] {
-        const { text } = props
-        if (!text) return ['Text property is required']
-        return [, new CreateTodoDto(text)];
-    }
-}
-
-// en el controller
-        const [error, createTodoDto] = CreateTodoDto.create(req.body)
-        if (error) return res.status(400).json({ error })
-
-
-
-        const todo = await prisma.todo.create({
-            data: createTodoDto!
-        })
-
-
-```
-
-* Update TODO DTO
-
-```ts
-export class UpdateTodoDto {
-
-    private constructor(
-        public readonly id: number,
-        public readonly text?: string,
-        public readonly createdAt?: Date,
-    ) { }
-
-    get values() {
-
-        const returnObj: { [key: string]: any } = {}
-
-        if (this.text) returnObj.text = this.text;
-        if (this.createdAt) returnObj.createdAt = this.createdAt;
-
-        return returnObj
-
-    }
-
-    static create(props: { [key: string]: any }): [string?, UpdateTodoDto?] {
-        const { id, text, createdAt } = props
-
-        if (!id || isNaN(id)) return ['Id must be a valid number']
-
-        let newCreatedAt = createdAt
-        if (createdAt) {
-            newCreatedAt = new Date(createdAt)
-            if (newCreatedAt.toString() === 'Invalid Date') {
-                return ['CreatedAt must be a valid date']
-            }
-        }
-        return [, new UpdateTodoDto(id, text, newCreatedAt)];
-    }
-}
-
-
-// en el controller
-const [error, updateTodoDto] = UpdateTodoDto.create({ ...req.body, id })
-
-const updateTodo = await prisma.todo.update({
-            where: { id: id },
-            data: updateTodoDto!.values
-})
-
-```
-
-> Nos puede servir para hacer validaciones de un tipo de dato, que se envie de la forma en que queremos
-
-## Metodos con Prisma ORM 
-
-### Metodo get
-
-```ts
-    public getTodos = async (req: Request, res: Response) => {
-        const todos = await prisma.todo.findMany()
-        res.json(todos)
-    }
-
-    public getTodoById = async (req: Request, res: Response) => {
-        const idTodo = +req.params.id!;
-        if (isNaN(idTodo)) return res.status(404).json({ error: 'el ID debe ser un numero' })
-
-        const todo = await prisma.todo.findUnique({
-            where: {
-                id: idTodo
-            }
-        });
-
-        (todo)
-            ? res.json(todo)
-            : res.status(404).json({ error: `Todo with id ${idTodo} not found` })
-    }
-
-```
-
-### Metodo Post
-
-```ts
-    public createTodo = async (req: Request, res: Response) => {
-
-        const { text, createdAt } = req.body;
-        if (!text) res.status(400).json({ error: 'text property is required' })
-
-
-        const todo = await prisma.todo.create({
-            data: {
-                text,
-                createdAt: (createdAt) ? new Date(createdAt) : null
-
-            }
-        })
-
-        res.json(todo)
-    }
-```
-
-### Metodo Update
- 
-```ts
-
-    public updateTodo = async (req: Request, res: Response) => {
-        const id = +req.params.id!;
-        if (isNaN(id)) return res.status(404).json({ error: 'el ID debe ser un numero' })
-
-        const todo = await prisma.todo.findUnique({
-            where: {
-                id: id
-            }
-        });
-        if (!todo) return res.status(404).json({ error: `Todo with id ${id} not found` })
-
-        const { text, createdAt } = req.body
-
-        const updateTodo = await prisma.todo.update({
-            where: { id: id },
-            data: {
-                text: text,
-                createdAt: (createdAt) ? new Date(createdAt) : null
-            }
-        })
-
-        res.json(updateTodo)
-    }
-```
-
-### Metodo Delete
-
-```ts
-    public deleteTodo = async (req: Request, res: Response) => {
-        const id = +req.params.id!;
-        if (isNaN(id)) return res.status(404).json({ error: 'el ID debe ser un numero' })
-
-        const todo = await prisma.todo.findUnique({
-            where: {
-                id: id
-            }
-        });
-        if (!todo) return res.status(404).json({ error: `Todo with id ${id} not found` })
-
-
-        const deleteTodo = await prisma.todo.delete({
-            where: {
-                id: id
-            }
-        })
-
-        res.json(todo)
-    }
-```
+- `npm run dev`: Inicia el servidor usando entorno local detectando cambios `.ts` gracias a `tsx`.
+- `npm run build`: Elimina las descargas obsoletas, recrea los clientes de prisma y compila vía TypeScript el output en `/dist`.
+- `npm start`: Ideal para correr tu proyecto compilado y en producción, actualizando esquemas antes en la DB de Prisma.

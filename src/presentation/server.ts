@@ -7,7 +7,7 @@ interface Options {
     routes: Router;
 }
 
-const __dirname = import.meta.dirname;
+// const __dirname = import.meta.dirname;
 
 export class Server {
 
