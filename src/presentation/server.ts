@@ -31,15 +31,14 @@ export class Server {
         this.app.use(express.urlencoded({ extended: true })) // x-www-form-urlencoded
 
         //* Public Folder - use absolute path from project root
-        const publicPath = path.join(__dirname + `../../../${this.publicPath}`);
-        this.app.use(express.static(publicPath))
+        this.app.use(express.static(this.publicPath))
 
         //* Routes
         this.app.use(this.routes)
 
         //* SPA - serve index.html for all non-API routes
         this.app.get('/*splat', (req, res) => {
-            const indexPath = path.join(publicPath, 'index.html')
+            const indexPath = path.join(__dirname + `../../../${this.publicPath}/index.html`);
             res.sendFile(indexPath)
         })
         this.app.listen(this.port, () => {
